@@ -25,6 +25,11 @@ def token_required(f):
         return f(current_user, *args, **kwargs)
     return decorated
 
+@app.route('/test', methods=['GET'])
+def test():
+    return jsonify({"message": "Hello, World!"})
+
+
 @app.route("/")
 @app.route("/home")
 def home():
