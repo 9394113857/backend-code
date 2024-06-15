@@ -18,3 +18,5 @@ app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USERNAME'] = "practicesession3@gmail.com"
 app.config['MAIL_PASSWORD'] = "gpap kwxz sujc qxie"
 mail = Mail(app)
+
+from routes import *
