@@ -1,10 +1,9 @@
-# create_db.py
-from app import db, app
+from app import app, db
 import os
 
 # Check if the database file already exists
 db_file_path = os.path.join(app.root_path, 'site.db')
-if not os.path.isfile(db_file_path):  # Use isfile to check if file exists
+if not os.path.isfile(db_file_path):
     with app.app_context():
         db.create_all()
         print("Database tables created.")

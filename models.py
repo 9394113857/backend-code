@@ -1,5 +1,5 @@
 from flask import app
-from itsdangerous import TimedSerializer as Serializer # type: ignore
+from itsdangerous import TimedSerializer as Serializer
 from datetime import datetime
 from __init__ import db, login_manager
 from flask_login import UserMixin
