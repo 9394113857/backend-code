@@ -1,7 +1,9 @@
+# routes.py
+
 import os
 import secrets
 from PIL import Image
-from flask import request, jsonify, make_response, abort, url_for
+from flask import request, jsonify, make_response, abort, url_for, send_file
 from __init__ import app, db, bcrypt, mail
 from forms import RegistrationForm, LoginForm, UpdateAccountForm, PostForm, RequestResetForm, ResetPasswordForm
 from models import User, Post
@@ -10,6 +12,38 @@ from flask_mail import Message
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps
+
+# Function to save uploaded profile picture
+def save_picture(form_picture):
+    random_hex = secrets.token_hex(8)
+    _, f_ext = os.path.splitext(form_picture.filename)
+    picture_fn = random_hex + f_ext
+    picture_path = os.path.join(app.root_path, 'static/profile_pics', picture_fn)
+
+    output_size = (125, 125)
+    i = Image.open(form_picture)
+    i.thumbnail(output_size)
+    i.save(picture_path)
+
+    return picture_fn
+
+def send_verification_email(user):
+    token = user.get_verification_token()
+    msg = Message('Email Verification', sender='noreply@demo.com', recipients=[user.email])
+    msg.body = f'''To verify your email, visit the following link:
+{url_for('verify_email', token=token, _external=True)}
+If you did not create an account, please ignore this email.
+'''
+    mail.send(msg)
+
+def send_reset_email(user):
+    token = user.get_reset_token()
+    msg = Message('Password Reset Request', sender='noreply@demo.com', recipients=[user.email])
+    msg.body = f'''To reset your password, visit the following link:
+{url_for('reset_token', token=token, _external=True)}
+If you did not make this request then simply ignore this email and no changes will be made.
+'''
+    mail.send(msg)
 
 def token_required(f):
     @wraps(f)
@@ -29,7 +63,6 @@ def token_required(f):
 def test():
     return jsonify({"message": "Hello, World!"})
 
-
 @app.route("/")
 @app.route("/home")
 def home():
@@ -41,16 +74,7 @@ def home():
 def about():
     return jsonify({'title': 'About'})
 
-def send_verification_email(user):
-    token = user.get_verification_token()
-    msg = Message('Email Verification', sender='noreply@demo.com', recipients=[user.email])
-    msg.body = f'''To verify your email, visit the following link:
-{url_for('verify_email', token=token, _external=True)}
-If you did not create an account, please ignore this email.
-'''
-    mail.send(msg)
-
-@app.route("/register", methods=['GET', 'POST'])
+@app.route("/register", methods=['POST'])
 def register():
     if current_user.is_authenticated:
         return jsonify({'message': 'Already logged in.'}), 400
@@ -74,7 +98,7 @@ def verify_email(token):
     else:
         return jsonify({'message': 'Verification link is invalid or expired.'}), 400
 
-@app.route("/login", methods=['GET', 'POST'])
+@app.route("/login", methods=['POST'])
 def login():
     if current_user.is_authenticated:
         return jsonify({'message': 'Already logged in.'}), 400
@@ -109,7 +133,7 @@ def account():
         current_user.email = form.email.data
         if form.picture.data:
             picture_file = save_picture(form.picture.data)
-            current_user.image_file = picture_file
+            current_user.profile_pic = picture_file  # Save the filename or binary data directly to the database
         db.session.commit()
         return jsonify({'message': 'Account updated.'}), 200
     elif request.method == 'GET':
@@ -157,26 +181,6 @@ def delete_post(post_id):
     db.session.commit()
     return jsonify({'message': 'Post deleted.'}), 200
 
-def save_picture(form_picture):
-    random_hex = secrets.token_hex(8)
-    _, f_ext = os.path.splitext(form_picture.filename)
-    picture_fn = random_hex + f_ext
-    picture_path = os.path.join(app.root_path, 'static/profile_pics', picture_fn)
-    output_size = (125, 125)
-    i = Image.open(form_picture)
-    i.thumbnail(output_size)
-    i.save(picture_path)
-    return picture_fn
-
-def send_reset_email(user):
-    token = user.get_reset_token()
-    msg = Message('Password Reset Request', sender='noreply@demo.com', recipients=[user.email])
-    msg.body = f'''To reset your password, visit the following link:
-{url_for('reset_token', token=token, _external=True)}
-If you did not make this request then simply ignore this email and no changes will be made.
-'''
-    mail.send(msg)
-
 @app.route("/reset_password", methods=['POST'])
 def reset_request():
     form = RequestResetForm()
@@ -199,3 +203,4 @@ def reset_token(token):
         db.session.commit()
         return jsonify({'message': 'Your password has been updated! You are now able to log in.'}), 200
     return jsonify(form.errors), 400
+
